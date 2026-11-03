@@ -4,7 +4,7 @@ from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
-# Render'ın ücretsiz web servisini kandırmak için mini web sunucusu
+# Render'ın ücretsiz web servisini aktif tutmak için mini web sunucusu
 app = Flask('')
 
 
@@ -17,7 +17,7 @@ def run_web():
   app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
 
 
-# Telegram'ın resmi açık kaynak test anahtarları
+# Telegram API Bilgileri
 API_ID = 2040
 API_HASH = "b18441a1ff607e10a989891a5462e627"
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
@@ -73,34 +73,39 @@ async def main():
   await client.start()
   print("Userbot başarıyla aktif edildi ve 7/24 çalışıyor!")
 
+  # 1. ÖZEL MESAJLAR (Biri sana özelden yazdığı an ANINDA yanıt verir)
   @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
   async def auto_reply(event):
     if event.out:
       return
     await event.respond(OTO_YANIT_METNI)
+    print(f"Özelden yazan kişiye anında yanıt gönderildi.")
 
+  # 2. GRUPLAR (Tam 2 dakikada bir bütün gruplara toplu olarak mesaj atar)
   async def periodic_poster():
     while True:
-      await asyncio.sleep(180)
+      await asyncio.sleep(120)  # Tam 2 dakika bekle
+      print("2 dakika doldu, gruplara toplu gönderim başlatılıyor...")
       for grup in HEDEF_GRUPLAR:
         try:
+          # Aradaki beklemeyi kaldırdık, peş peşe toplu atacak
           await client.send_message(grup, GRUP_REKLAM_METNI)
-          print(f"{grup} grubuna mesaj gönderildi.")
-          await asyncio.sleep(3)
+          print(f"{grup} grubuna mesaj iletildi.")
         except Exception as e:
           print(f"{grup} grubuna mesaj gönderilemedi: {e}")
+      print("Tüm gruplara toplu gönderim tamamlandı.")
 
   client.loop.create_task(periodic_poster())
   await client.run_until_disconnected()
 
 
 if __name__ == "__main__":
-  # Web sunucusunu arka planda (ayrı bir thread'de) başlat
   import threading
 
+  # Web sunucusunu arka planda başlat
   t = threading.Thread(target=run_web)
   t.start()
 
   # Telegram botunu başlat
   asyncio.run(main())
-    
+  
