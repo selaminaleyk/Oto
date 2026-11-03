@@ -73,27 +73,32 @@ async def main():
   await client.start()
   print("Userbot başarıyla aktif edildi ve 7/24 çalışıyor!")
 
-  # 1. ÖZEL MESAJLAR (Biri sana özelden yazdığı an ANINDA yanıt verir)
-  @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
+  # 1. ÖZEL MESAJLAR (Flood korumalı ve garantili DM yakalayıcı)
+  @client.on(events.NewMessage(incoming=True))
   async def auto_reply(event):
-    if event.out:
-      return
-    await event.respond(OTO_YANIT_METNI)
-    print(f"Özelden yazan kişiye anında yanıt gönderildi.")
+    if event.is_private and not event.out:
+      try:
+        # Karşı tarafa insan gibi görünmek ve engellenmemek için yarım saniye bekleme
+        await asyncio.sleep(0.5)
+        await event.respond(OTO_YANIT_METNI)
+        print(f"Özelden yazan kişiye yanıt gönderildi.")
+      except Exception as e:
+        print(f"Özel mesaja yanıt verilemedi: {e}")
 
-  # 2. GRUPLAR (Tam 2 dakikada bir bütün gruplara toplu olarak mesaj atar)
+  # 2. GRUPLAR (2 dakikada bir tetiklenir, Telegram filtresine takılmamak için araya mini bekleme ekler)
   async def periodic_poster():
     while True:
       await asyncio.sleep(120)  # Tam 2 dakika bekle
-      print("2 dakika doldu, gruplara toplu gönderim başlatılıyor...")
+      print("2 dakika doldu, gruplara gönderim başlatılıyor...")
       for grup in HEDEF_GRUPLAR:
         try:
-          # Aradaki beklemeyi kaldırdık, peş peşe toplu atacak
           await client.send_message(grup, GRUP_REKLAM_METNI)
           print(f"{grup} grubuna mesaj iletildi.")
+          # Telegram'ın spam filtresine takılmamak için gruplar arası 1.5 saniye mola
+          await asyncio.sleep(1.5)
         except Exception as e:
           print(f"{grup} grubuna mesaj gönderilemedi: {e}")
-      print("Tüm gruplara toplu gönderim tamamlandı.")
+      print("Tüm gruplara döngü tamamlandı.")
 
   client.loop.create_task(periodic_poster())
   await client.run_until_disconnected()
@@ -108,4 +113,3 @@ if __name__ == "__main__":
 
   # Telegram botunu başlat
   asyncio.run(main())
-  
