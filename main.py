@@ -73,34 +73,32 @@ async def main():
   await client.start()
   print("Userbot başarıyla aktif edildi ve 7/24 çalışıyor!")
 
-  # 1. ÖZEL MESAJLAR (Biri yazdığı an tam 5 saniye sonra yanıt verir)
-  @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
-  async def dm_reply(event):
-    if event.out:
-      return
-    try:
-      await asyncio.sleep(5)  # Tam istediğin gibi 5 saniye bekleyip atar
-      await event.respond(OTO_YANIT_METNI)
-      print("[DM] Özelden yazan kişiye 5 saniye sonra yanıt gönderildi.")
-    except Exception as e:
-      print(f"[DM HATA]: {e}")
+  # 1. ÖZEL MESAJLAR (Saniyesinde, sıfır gecikmeyle anında yapıştırır)
+  @client.on(events.NewMessage(incoming=True))
+  async def instant_dm(event):
+    if event.is_private and not event.out:
+      try:
+        await event.respond(OTO_YANIT_METNI)
+        print("[ANINDA DM] Özelden yazan kişiye yanıt gönderildi.")
+      except Exception as e:
+        print(f"[DM HATA]: {e}")
 
-  # 2. GRUPLAR (Tam 30 saniyede bir toplu reklam atar)
-  async def periodic_poster():
+  # 2. GRUPLAR (Tam 1 dakikada bir [60 saniye] toplu şekilde hepsine atar)
+  async def periodic_group_poster():
     while True:
-      await asyncio.sleep(30)  # Tam 30 saniye bekle
-      print("--- 30 saniye doldu, gruplara toplu reklam gönderiliyor ---")
+      await asyncio.sleep(60)  # Tam 1 dakika bekle
+      print("--- 1 dakika doldu, gruplara toplu reklam gönderiliyor ---")
       for grup in HEDEF_GRUPLAR:
         try:
           entity = await client.get_entity(grup)
           await client.send_message(entity, GRUP_REKLAM_METNI)
           print(f"[GRUP BAŞARILI] {grup}")
-          await asyncio.sleep(0.5)  # Çok hızlı yığılıp ban yememek için mini mola
+          await asyncio.sleep(0.5)  # Telegram ban yememek için minik koruma
         except Exception as e:
           print(f"[GRUP HATA] {grup}: {e}")
-      print("--- Gruplar döngüsü bitti, sonraki 30 saniye bekleniyor ---")
+      print("--- Toplu gönderim bitti, sonraki 1 dakika bekleniyor ---")
 
-  client.loop.create_task(periodic_poster())
+  client.loop.create_task(periodic_group_poster())
   await client.run_until_disconnected()
 
 
