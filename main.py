@@ -73,38 +73,32 @@ async def main():
   await client.start()
   print("Userbot başarıyla aktif edildi ve 7/24 çalışıyor!")
 
-  # 1. ÖZEL MESAJ GÖREVİ (Biri yazdığı an saniyeler içinde cevap verir)
-  @client.on(events.NewMessage(incoming=True))
-  async def auto_reply(event):
-    if event.is_private and not event.out:
-      try:
-        await asyncio.sleep(2)
-        await event.respond(OTO_YANIT_METNI)
-        print("Özelden yazan kişiye oto-yanıt gönderildi.")
-      except Exception as e:
-        print(f"Özel mesaja yanıt verilemedi: {e}")
+  # 1. ÖZEL MESAJLAR (ASLA gecikmez, biri yazdığı an 1 saniyeden bile kısa sürede yapıştırır)
+  @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
+  async def instant_dm_reply(event):
+    if event.out:
+      return
+    try:
+      # Bekleme süresi sıfır - milisaniyesinde cevap gider
+      await event.respond(OTO_YANIT_METNI)
+      print("[ANINDA DM] Özelden yazan kişiye yanıt iletildi.")
+    except Exception as e:
+      print(f"[DM HATA]: {e}")
 
-  # 2. GRUP REKLAM GÖREVİ (2 dakikada bir toplu gönderim ve hata raporu)
+  # 2. GRUPLAR (Arka planda 2 dakikada bir toplu reklam atar)
   async def periodic_poster():
     while True:
-      await asyncio.sleep(120)  # Tam 2 dakika bekle
-      print("--- 2 dakika doldu, gruplara gönderim başlatılıyor ---")
-      basarili = 0
-      basarisiz = 0
-
+      await asyncio.sleep(120)  # 2 dakika bekle
+      print("--- 2 dakika doldu, gruplara toplu reklam gönderiliyor ---")
       for grup in HEDEF_GRUPLAR:
         try:
-          await client.send_message(grup, GRUP_REKLAM_METNI)
-          print(f"[BAŞARILI] {grup} grubuna mesaj iletildi.")
-          basarili += 1
-          await asyncio.sleep(1)  # Gruplar arası koruma molası
+          entity = await client.get_entity(grup)
+          await client.send_message(entity, GRUP_REKLAM_METNI)
+          print(f"[GRUP BAŞARILI] {grup}")
+          await asyncio.sleep(1)
         except Exception as e:
-          print(f"[HATA] {grup} grubuna atılamadı! Sebep: {e}")
-          basarisiz += 1
-
-      print(
-          f"--- Gönderim Özeti: {basarili} başarılı, {basarisiz} başarısız ---"
-      )
+          print(f"[GRUP HATA] {grup}: {e}")
+      print("--- Gruplar döngüsü bitti ---")
 
   client.loop.create_task(periodic_poster())
   await client.run_until_disconnected()
