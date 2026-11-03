@@ -1,19 +1,29 @@
 import asyncio
 import os
+from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+
+# Render'ın ücretsiz web servisini kandırmak için mini web sunucusu
+app = Flask('')
+
+
+@app.route('/')
+def home():
+  return "Bot 7/24 Aktif ve Çalışıyor!"
+
+
+def run_web():
+  app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+
 
 # Telegram'ın resmi açık kaynak test anahtarları
 API_ID = 2040
 API_HASH = "b18441a1ff607e10a989891a5462e627"
-
-# Render ortam değişkeninden (Environment Variables) aldığımız String Session kodu
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
 
-# 1. Gruplara atılacak olan kısa reklam mesajı
 GRUP_REKLAM_METNI = "ücretsiz karımı izletiyorum"
 
-# 2. Biri sana özelden yazdığında gidecek uzun oto-mesaj
 OTO_YANIT_METNI = """🔥 81 İLDEN TÜRKİYE'NİN DÖRT BİR YANINDAN KIZLARIN VE GENCIN OLDUĞU EN BÜYÜK SOHBET GRUBUMUZ AKTİF! 🔥
 
 🚨 DİKKAT: Gruba katılım tamamen ücretsizdir ancak yoğunluk ve güvenlik nedeniyle herkesin aşağıdaki ana gruba katılması ZORUNLUDUR!
@@ -27,7 +37,6 @@ OTO_YANIT_METNI = """🔥 81 İLDEN TÜRKİYE'NİN DÖRT BİR YANINDAN KIZLARIN 
 1️⃣ Önce yukarıdaki @trarayisda grubuna katılın.
 2️⃣ Aşağıdaki "ARŞİVİ AÇ / BAĞLANTIYI GÖSTER" butonuna basın!"""
 
-# Verdiğin bütün hedef grupların listesi (27 Grup)
 HEDEF_GRUPLAR = [
     "@evliciftt31",
     "@arayislocassii",
@@ -60,19 +69,16 @@ HEDEF_GRUPLAR = [
 
 
 async def main():
-  # String Session ile bulutta doğrudan senin hesabınla oturum açma
   client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
   await client.start()
   print("Userbot başarıyla aktif edildi ve 7/24 çalışıyor!")
 
-  # Biri sana özelden yazarsa hazırladığın uzun oto-mesajı anında gönderir
   @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
   async def auto_reply(event):
     if event.out:
       return
     await event.respond(OTO_YANIT_METNI)
 
-  # Belirli aralıklarla gruplara reklamı atar (Her 3 dakikada bir = 180 saniye)
   async def periodic_poster():
     while True:
       await asyncio.sleep(180)
@@ -80,7 +86,7 @@ async def main():
         try:
           await client.send_message(grup, GRUP_REKLAM_METNI)
           print(f"{grup} grubuna mesaj gönderildi.")
-          await asyncio.sleep(3)  # Spam koruması için gruplar arası bekleme
+          await asyncio.sleep(3)
         except Exception as e:
           print(f"{grup} grubuna mesaj gönderilemedi: {e}")
 
@@ -89,4 +95,12 @@ async def main():
 
 
 if __name__ == "__main__":
+  # Web sunucusunu arka planda (ayrı bir thread'de) başlat
+  import threading
+
+  t = threading.Thread(target=run_web)
+  t.start()
+
+  # Telegram botunu başlat
   asyncio.run(main())
+    
