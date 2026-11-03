@@ -4,7 +4,7 @@ from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
-# Render'ın ücretsiz web servisini aktif tutmak için mini web sunucusu
+# Render'ın ücretsiz web servisini ayakta tutmak için mini web sunucusu
 app = Flask('')
 
 
@@ -73,32 +73,32 @@ async def main():
   await client.start()
   print("Userbot başarıyla aktif edildi ve 7/24 çalışıyor!")
 
-  # 1. ÖZEL MESAJLAR (ASLA gecikmez, biri yazdığı an 1 saniyeden bile kısa sürede yapıştırır)
+  # 1. ÖZEL MESAJLAR (Biri yazdığı an tam 5 saniye sonra yanıt verir)
   @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
-  async def instant_dm_reply(event):
+  async def dm_reply(event):
     if event.out:
       return
     try:
-      # Bekleme süresi sıfır - milisaniyesinde cevap gider
+      await asyncio.sleep(5)  # Tam istediğin gibi 5 saniye bekleyip atar
       await event.respond(OTO_YANIT_METNI)
-      print("[ANINDA DM] Özelden yazan kişiye yanıt iletildi.")
+      print("[DM] Özelden yazan kişiye 5 saniye sonra yanıt gönderildi.")
     except Exception as e:
       print(f"[DM HATA]: {e}")
 
-  # 2. GRUPLAR (Arka planda 2 dakikada bir toplu reklam atar)
+  # 2. GRUPLAR (Tam 30 saniyede bir toplu reklam atar)
   async def periodic_poster():
     while True:
-      await asyncio.sleep(120)  # 2 dakika bekle
-      print("--- 2 dakika doldu, gruplara toplu reklam gönderiliyor ---")
+      await asyncio.sleep(30)  # Tam 30 saniye bekle
+      print("--- 30 saniye doldu, gruplara toplu reklam gönderiliyor ---")
       for grup in HEDEF_GRUPLAR:
         try:
           entity = await client.get_entity(grup)
           await client.send_message(entity, GRUP_REKLAM_METNI)
           print(f"[GRUP BAŞARILI] {grup}")
-          await asyncio.sleep(1)
+          await asyncio.sleep(0.5)  # Çok hızlı yığılıp ban yememek için mini mola
         except Exception as e:
           print(f"[GRUP HATA] {grup}: {e}")
-      print("--- Gruplar döngüsü bitti ---")
+      print("--- Gruplar döngüsü bitti, sonraki 30 saniye bekleniyor ---")
 
   client.loop.create_task(periodic_poster())
   await client.run_until_disconnected()
