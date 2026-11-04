@@ -1,25 +1,24 @@
 import asyncio
 import os
+import threading
 from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
-# Render'ın ücretsiz web servisini aktif tutmak için mini web sunucusu
+# Render'ın ücretsiz web servisini ayakta tutmak için mini web sunucusu
 app = Flask('')
-
 
 @app.route('/')
 def home():
-  return "Bot 7/24 Aktif ve Çalışıyor!"
-
+    return "Bot 7/24 Aktif ve Çalışıyor!"
 
 def run_web():
-  app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
 
-
-# Telegram API Bilgileri
-API_ID = 2040
-API_HASH = "b18441a1ff607e10a989891a5462e627"
+# Telegram API Bilgileri (Environment değişkenlerinden veya doğrudan)
+API_ID = int(os.environ.get('API_ID', 2040))
+API_HASH = os.environ.get('API_HASH', "b18441a1ff607e10a989891a5462e627")
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
 
 GRUP_REKLAM_METNI = "ücretsiz karımı izletiyorum"
@@ -38,11 +37,12 @@ OTO_YANIT_METNI = """🔥 81 İLDEN TÜRKİYE'NİN DÖRT BİR YANINDAN KIZLARIN 
 2️⃣ Aşağıdaki "ARŞİVİ AÇ / BAĞLANTIYI GÖSTER" butonuna basın!"""
 
 HEDEF_GRUPLAR = [
-    "@trarayis29",
+    "@evliciftt31",
     "@arayislocassii",
     "@Bursasohbette",
     "@heraarayis",
     "@TRArayisVip",
+    "@trarayis29",
     "@rollarayis4",
     "@kiz_arayis_tr",
     "@arayis10x",
@@ -66,48 +66,58 @@ HEDEF_GRUPLAR = [
     "@evliciftler_evligizlicift",
 ]
 
+async def periodic_group_poster(client):
+    """Her 50 saniyede bir hedef gruplara reklam metnini atar. Hata alanları atlar."""
+    while True:
+        await asyncio.sleep(50)  # Tam 50 saniye bekle
+        print("--- 50 saniye doldu, gruplara toplu gönderim başlatılıyor ---")
+        for grup in HEDEF_GRUPLAR:
+            try:
+                # Gruba mesaj gönderimi
+                await client.send_message(grup, GRUP_REKLAM_METNI)
+                print(f"[GRUP BAŞARILI] {grup} adresine reklam gönderildi.")
+                await asyncio.sleep(0.5)  # Flood koruması için kısa bekleme
+            except Exception as e:
+                # Ban veya erişim hatası alan grubu es geçip diğerine devam eder
+                print(f"[GRUP HATA ATLANDI] {grup}: {e}")
+        print("--- Toplu gönderim tamamlandı, sonraki 50 saniye bekleniyor ---")
 
 async def main():
-  client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-  await client.start()
-  print("Userbot başarıyla aktif edildi ve 7/24 çalışıyor!")
+    if not SESSION_STRING:
+        print("[HATA] SESSION_STRING bulunamadı! Lütfen environment değişkenini kontrol edin.")
+        return
 
-  # 1. ÖZEL MESAJLAR (Gecikmeli ve garantili yanıt sistemi)
-  @client.on(events.NewMessage(incoming=True))
-  async def auto_reply(event):
-    if event.is_private and not event.out:
-      try:
-        # Telegram spam filtresine takılmamak için çok kısa doğal bir gecikme
-        await asyncio.sleep(0)
-        await event.respond(OTO_YANIT_METNI)
-        print(f"Özelden yazan kişiye yanıt gönderildi.")
-      except Exception as e:
-        print(f"Özel mesaja yanıt verilemedi (Flood olabilir): {e}")
-
-  # 2. GRUPLAR (2 dakikada bir toplu gönderim)
-  async def periodic_poster():
-    while True:
-      await asyncio.sleep(42)  # Tam 2 dakika bekle
-      print("2 dakika doldu, gruplara gönderim başlatılıyor...")
-      for grup in HEDEF_GRUPLAR:
+    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+    
+    # 1. BAĞIMSIZ DM DİNLEYİCİSİ (Özelden yazan herkese saniyesinde cevap verir)
+    @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
+    async def instant_dm_reply(event):
+        if event.out:
+            return
         try:
-          await client.send_message(grup, GRUP_REKLAM_METNI)
-          print(f"{grup} grubuna mesaj iletildi.")
-          await asyncio.sleep(0.5)  # Gruplar arası koruma molası
+            await event.respond(OTO_YANIT_METNI)
+            print(f"[ANINDA DM] Özelden yazan kullanıcıya ({event.chat_id}) yanıt gönderildi.")
         except Exception as e:
-          print(f"{grup} grubuna mesaj gönderilemedi: {e}")
-      print("Tüm gruplara döngü tamamlandı.")
+            print(f"[DM HATA]: {e}")
 
-  client.loop.create_task(periodic_poster())
-  await client.run_until_disconnected()
+    print("Userbot başlatılıyor...")
+    await client.start()
+    print("Userbot başarıyla aktif edildi ve 7/24 çalışıyor!")
 
+    # Arka plan döngüsünü güvenli bir şekilde başlat
+    asyncio.create_task(periodic_group_poster(client))
+    
+    # Botun bağlantısını kopmadan koru
+    await client.run_until_disconnected()
 
 if __name__ == "__main__":
-  import threading
+    # Web sunucusunu arka planda (Ayrı bir Thread içinde) başlat
+    web_thread = threading.Thread(target=run_web)
+    web_thread.daemon = True
+    web_thread.start()
 
-  # Web sunucusunu arka planda başlat
-  t = threading.Thread(target=run_web)
-  t.start()
-
-  # Telegram botunu başlat
-  asyncio.run(main())
+    # Telegram botunu ana thread üzerinde çalıştır
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Bot manuel olarak durduruldu.")
